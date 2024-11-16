@@ -1,29 +1,60 @@
-# Define the path for the log file
-$logFile = "Logs\Foo2.csv"
+<#
+.SYNOPSIS
+  Logs internet speed test results in CSV format.
 
-# Check if the log file exists
-if (-not (Test-Path $logFile)) {
+.DESCRIPTION
+  This script uses the Speedtest CLI to log download, upload, and ping results to a CSV file.
+  If the log file does not exist, it includes headers. Otherwise, it appends new results.
+
+.OUTPUTS
+  Creates or updates a CSV log file with speed test results.
+
+.NOTES
+  Version:        0.4
+  Author:         FourtyThree43
+  Creation Date:  18.11.2024
+  Purpose/Change: Initial version with error handling and logging.
+#>
+
+# Configuration
+$logFile = "Logs\SpeedTestLog.csv"
+$logErrorFile = "Logs\SpeedTestErrorLog.txt"
+
+# Function to write logs with timestamp
+Function Write-Log {
+    param(
+        [Parameter(Mandatory = $true)][string] $message,
+        [Parameter(Mandatory = $false)][ValidateSet("INFO", "WARN", "ERROR")][string] $level = "INFO"
+    )
+    $timestamp = (Get-Date).ToString("yyyy/MM/dd HH:mm:ss")
+    Add-Content -Path $logErrorFile -Value "$timestamp [$level] - $message"
+}
+
+# Function to run Speedtest and log results
+Function Log-SpeedTest {
     try {
-        # Run the Speedtest CLI with header included
-        $speedTestResult = speedtest --output-header --format=csv
+        # Determine the Speedtest command based on log file existence
+        if (-not (Test-Path $logFile)) {
+            $command = "speedtest --output-header --format=csv"
+            Write-Log -message "Log file does not exist. Running Speedtest with header."
+        } else {
+            $command = "speedtest --format=csv"
+            Write-Log -message "Log file exists. Running Speedtest without header."
+        }
+
+        # Run the Speedtest CLI command
+        $speedTestResult = Invoke-Expression $command
         
-        # Write the result to the new log file
-        $speedTestResult | Out-File -FilePath $logFile -Encoding UTF8
-        Write-Host "Log file created with header and initial entry at $logFile" -ForegroundColor Green
-    } catch {
-        Write-Host "Error creating log file or running Speedtest CLI: $_" -ForegroundColor Red
-        exit 1
-    }
-} else {
-    try {
-        # Run the Speedtest CLI without the header
-        $speedTestResult = speedtest --format=csv
-        
-        # Append the result to the existing log file
+        # Write results to log file
         $speedTestResult | Out-File -FilePath $logFile -Append -Encoding UTF8
-        Write-Host "Speedtest result appended to log file at $logFile" -ForegroundColor Green
+        Write-Log -message "Speedtest results logged successfully to $logFile."
     } catch {
-        Write-Host "Error running Speedtest CLI or writing to log file: $_" -ForegroundColor Red
-        exit 1
+        Write-Log -message "Failed to run Speedtest or write to log: $_" -level "ERROR"
     }
 }
+
+# Script Execution
+Write-Log -message "######### Script Execution Started #########"
+Log-SpeedTest
+Write-Log -message "######### Script Execution Completed #########"
+Write-Output "Speedtest logging completed. Check logs at $logFile and errors at $logErrorFile."
