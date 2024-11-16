@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
-  Logs internet speed test results in CSV format.
+  Logs internet speed test results in CSV format and maintains a separate log for informational and error messages.
 
 .DESCRIPTION
   This script uses the Speedtest CLI to log download, upload, and ping results to a CSV file.
-  If the log file does not exist, it includes headers. Otherwise, it appends new results.
+  It also writes informational and error logs to a TXT log file.
 
 .OUTPUTS
-  Creates or updates a CSV log file with speed test results.
+  - A CSV log file for speed test results.
+  - A TXT log file for informational and error messages.
 
 .NOTES
   Version:        0.4
@@ -17,8 +18,8 @@
 #>
 
 # Configuration
-$logFile = "Logs\SpeedTestLog.csv"
-$logErrorFile = "Logs\SpeedTestErrorLog.txt"
+$resultsLogFile = "Logs\SpeedTestLog.csv"
+$txtLogFile = "Logs\SpeedTestErrorLog.txt"
 
 # Function to write logs with timestamp
 Function Write-Log {
@@ -27,29 +28,29 @@ Function Write-Log {
         [Parameter(Mandatory = $false)][ValidateSet("INFO", "WARN", "ERROR")][string] $level = "INFO"
     )
     $timestamp = (Get-Date).ToString("yyyy/MM/dd HH:mm:ss")
-    Add-Content -Path $logErrorFile -Value "$timestamp [$level] - $message"
+    Add-Content -Path $txtLogFile -Value "$timestamp [$level] - $message"
 }
 
-# Function to run Speedtest and log results
+# Function to run Speedtest and log results to CSV
 Function Log-SpeedTest {
     try {
-        # Determine the Speedtest command based on log file existence
-        if (-not (Test-Path $logFile)) {
+        # Determine the Speedtest command based on the existence of the CSV log file
+        if (-not (Test-Path $resultsLogFile)) {
             $command = "speedtest --output-header --format=csv"
-            Write-Log -message "Log file does not exist. Running Speedtest with header."
+            Write-Log -message "CSV log file does not exist. Running Speedtest with headers."
         } else {
             $command = "speedtest --format=csv"
-            Write-Log -message "Log file exists. Running Speedtest without header."
+            Write-Log -message "CSV log file exists. Running Speedtest without headers."
         }
 
-        # Run the Speedtest CLI command
+        # Run the Speedtest CLI command and capture output
         $speedTestResult = Invoke-Expression $command
         
-        # Write results to log file
-        $speedTestResult | Out-File -FilePath $logFile -Append -Encoding UTF8
-        Write-Log -message "Speedtest results logged successfully to $logFile."
+        # Append results to the CSV log file
+        $speedTestResult | Out-File -FilePath $resultsLogFile -Append -Encoding UTF8
+        Write-Log -message "Speedtest results logged to CSV successfully."
     } catch {
-        Write-Log -message "Failed to run Speedtest or write to log: $_" -level "ERROR"
+        Write-Log -message "Failed to run Speedtest or write to CSV log: $_" -level "ERROR"
     }
 }
 
@@ -57,4 +58,4 @@ Function Log-SpeedTest {
 Write-Log -message "######### Script Execution Started #########"
 Log-SpeedTest
 Write-Log -message "######### Script Execution Completed #########"
-Write-Output "Speedtest logging completed. Check logs at $logFile and errors at $logErrorFile."
+Write-Output "Speedtest logging completed. Check CSV results at $resultsLogFile and logs at $txtLogFile."
